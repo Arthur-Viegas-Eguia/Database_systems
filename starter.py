@@ -61,21 +61,70 @@ def closure(attrs: atset, fds: fdset) -> fdset:
         augResults = augmentation(attrs, result)
         for i in augResults:
             result.add(i)
-            
+
         transitiveDeps = transitivity(result)
         for i in transitiveDeps:
             result.add(i)
 
     return result
 
+def attributeClosure(attr, fds):
+    result = attr
+    #print(type(result))
+    oldResult = None
+    while result != oldResult:
+        oldResult = result.copy()
+        for dep in fds:
+            #print(dep.LHS.issubset(result))
+            #print(dep)
+            #print(dep.LHS," is a subset of ",result)
+            if dep.LHS.issubset(result):
+                #print("Here")
+                result = atset(list(result) + list(dep.RHS))
+    #print("Post ", result)
+    return atset(result)
+
 
 def bcnf(reln, fds) -> relnset:
     '''Given a relation represented as set of attributes (atset) and a set of
     functional dependencies (fdset), produce a set of relations that represents
     the BCNF decomposition of the original relation.'''
-
+    counter = 0
     result = relnset()
     result.add(reln)
+    changes = True
+    resultOld = None
+    relationQueue = []
+    for relation in result:
+        relationQueue.append(relation)
+    while relationQueue:
+        relation = relationQueue.pop()
+        print("Relation being decomposed ",relation)
+        resultOld = result.copy()
+        for dep in fds:
+            if (not dep.RHS.issubset(dep.LHS)) and (not relation.issubset(attributeClosure(dep.LHS, fds))) and (dep.RHS.issubset(relation)) and (dep.LHS.issubset(relation)):
+                print(dep)
+                print("LHS closure", attributeClosure(dep.LHS, fds))
+                counter += 1
+                print("counter ", counter)
+                result.remove(relation)
+                relation = relation - dep.RHS
+                new_relation = atset(list(dep.RHS) + list(dep.LHS))
+                relationQueue.append(relation)
+                relationQueue.append(new_relation)
+                if result == None:
+                    result = relnset()
+                result.add(atset(relation))
+                result.add(new_relation)
+                if result != resultOld:
+                    changes = True
+                    break
+            if counter == 3:
+                break
+            if not changes:
+                break
+        if counter == 3:
+            break
     return result
 
 #Gets all of the possible subsets from a series of attributes
@@ -176,21 +225,26 @@ def transitivity(deps):
 # if __name__ == "__main__":
 #     main()
 
-attrs = [1, 2]
+attrs = atset([1, 2, 3, 4, 5, 7])
 fds = fdset()
-fds.add(fd(atset([1]), atset([2])))
-fds.add(fd(atset([2]), atset([3])))
+fds.add(fd(atset([1]), atset([3, 4])))
+fds.add(fd(atset([2]), atset([5])))
 fds.add(fd(atset([3]), atset([4])))
-a = closure(attrs, fds)
-for asd in a:
-    print(asd)
+fds.add(fd(atset([1, 2]), atset([1,2,3,4,5,7])))
+res = bcnf(attrs, fds)
+for i in res:
+    print(i)
+# print("Finally")
+# for sti in a:
+#     print(sti)
 
+# set1 = {frozenset({1, 2}), frozenset({2, 3}), frozenset({3, 4})}
+# set2 = {frozenset({2, 3}), frozenset({3, 4}), frozenset({4, 5})}
+# set3 = {frozenset({3, 4}), frozenset({4, 5}), frozenset({5, 6})}
 
-# 1->2
-# 2->3
-# 3->4
-# 1->3
-# 1->4
-# 2->4
-
-
+# # Perform subtraction on sets of frozensets
+# result = set1 - set2 - set3
+# print(result)  # Out
+# fdTest = fdset()
+# fdTest.add(fd(atset([1]), atset([3, 4])))
+# attributeClosure(atset([1, 3, 4]), fdTest)
